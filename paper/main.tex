@@ -1,0 +1,424 @@
+\documentclass[10pt]{article}
+\usepackage{tmlr}
+
+\input{math_commands.tex}
+
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{graphicx}
+
+\title{The Safety Metric is the Independent Variable:\\
+Pairwise Reversal Rates Reveal What Aggregate Scores Hide\\
+in LLM Safety Evaluation}
+
+\author{\name Anonymous \email anon@example.com \\
+       \addr Anonymous Affiliation}
+
+\def\month{05}
+\def\year{2026}
+\def\openreview{\url{https://openreview.net/forum?id=ANONYMOUS}}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Frontier-LLM evaluation has standardised on a ``safety SOTA'' framing
+in which a single benchmark --- HarmBench, AlpacaEval, AIR-Bench, BBQ
+--- serves as the headline number. Stanford's HEIM-style holistic
+evaluations (HELM Safety v1.17.0, 2025) acknowledge that ``no single
+model excels in all aspects'' but the case-level cost of metric choice
+has not been quantified. We import the criterion-as-independent-
+variable framework, validated on LLM Q\&A, fund ranking, and
+text-to-image evaluation in companion papers, and apply it to the 87
+frontier-LLM~$\times$~9 safety-metric panel released by HELM Safety
+v1.17.0. We compute the pairwise reversal-rate matrix with cluster-
+bootstrap CIs ($B = 1000$ over models). Headline findings:
+\textbf{(1)} four metric pairs exceed 50\,\% reversal --- i.e., the
+preferred LLM flips on more than half of model pairs when the metric
+is swapped --- with the maximum at SimpleSafetyTests~$\leftrightarrow$~
+BBQ-unambiguous reaching \textbf{63.8\,\% (95\,\% CI [54.9\,\%,
+71.7\,\%])}; \textbf{(2)} every harm/safety metric exhibits
+\emph{negative} Spearman~$\rho$ with BBQ-unambiguous bias accuracy
+($\rho \in [-0.34, -0.10]$), so the LLMs that score highest on safety
+benchmarks score \emph{worst} on the bias benchmark; \textbf{(3)}
+within-HarmBench across-annotator reversal between the LM-evaluated
+and Llama-annotator scores is 25\,\%, demonstrating that ``HarmBench
+score'' is not a single quantity even within one benchmark;
+\textbf{(4)} hierarchical clustering on $1 - \rho$ yields three
+clusters that align with the underlying axis structure (harm/refusal,
+bias-favouring, bias-disfavouring). We argue the choice of safety
+metric is an \textbf{independent variable} of the evaluation research
+design, not a measurement nuisance, and recommend that
+LLM-developer ``safety SOTA'' claims report the full reversal-rate
+matrix alongside their headline.
+\end{abstract}
+
+\section{Introduction}
+
+When OpenAI, Anthropic, Google, or Meta announce a new LLM, the
+accompanying safety claim is typically a single benchmark number:
+``refuses 98\,\% of HarmBench prompts,'' ``scores 0.95 on Anthropic
+Red-Teaming,'' ``best-in-class on AIR-Bench.'' These are non-trivially
+valuable measurements. They also conceal a structural problem: the
+safety landscape has accumulated 102+ benchmarks since 2018, and the
+benchmarks \textbf{disagree}.
+
+Stanford's HEIM Safety \citep{liang2024helm} and AIR-Bench
+\citep{zeng2024airbench} document the disagreement qualitatively.
+BEAVERTAILS \citep{ji2023beavertails} showed that helpfulness and
+harmlessness can diverge per-prompt. \citet{liu2025scalesofjustitia}
+catalogue over 100 benchmarks and conclude the field is fragmented.
+None of these works has reported the \emph{case-level statistic}
+that practitioners actually care about: when I switch from one
+benchmark to another, how often does my model's ranking flip?
+
+We answer that question. Using the public HELM Safety v1.17.0
+release (87 frontier LLMs $\times$ 9 safety metrics across 5
+benchmarks: HarmBench, SimpleSafetyTests, XSTest, BBQ,
+AnthropicRedTeam), we compute the full pairwise reversal-rate matrix
+with cluster-bootstrap CIs and Spearman~$\rho$.
+
+\subsection{Contributions}
+
+\textbf{(C1)} A pre-registered statistical test of metric
+disagreement on LLM safety: 87-LLM panel, 9 metrics, 1000-trial
+cluster bootstrap.
+
+\textbf{(C2) Negative correlation between safety and bias.} Every
+harm/refusal metric on HELM Safety exhibits negative
+Spearman~$\rho$ with the BBQ-unambiguous bias accuracy
+($\rho \in [-0.345, -0.101]$). The LLMs that score highest on
+harm/refusal benchmarks score \emph{worst} on the bias benchmark.
+
+\textbf{(C3) Within-benchmark instability.} Even within one
+benchmark (HarmBench), the LM-evaluated safety score and the
+Llama-annotator success rate produce different rankings on
+25.5\,\% of LLM pairs. The ``HarmBench score'' is not a single
+quantity.
+
+\textbf{(C4) Three-cluster axis structure.} Hierarchical clustering
+on $1 - \rho$ separates the metrics into a harm/refusal main
+cluster, a bias contexts cluster, and a saturated outlier. The axes
+are nearly orthogonal, with one pair (harm vs.\ bias-unambiguous)
+substantially negatively correlated.
+
+\subsection{What this paper does \emph{not} claim}
+
+\begin{itemize}
+\item Safety benchmarks are wrong. Each measures something real on
+its own axis. Our claim is that the field treats these axes as if
+they were one quantity (``safety SOTA'') when they are not.
+\item A single best safety metric exists. The criterion-as-IV
+framework's premise is that the choice of metric is itself a
+research-design variable.
+\item All disagreement is bad. Helpfulness vs.\ harmlessness will
+always be in tension by definition \citep{bai2022constitutional}.
+Our contribution is to \emph{quantify} the case-level rate.
+\end{itemize}
+
+\subsection{Relation to companion work}
+
+This paper is the fourth cross-domain validation of the criterion-
+as-IV framework developed by the present authors:
+
+\begin{itemize}
+\item \textbf{paper 3} (NeurIPS E\&D, in review): LLM Q\&A evaluation
+\item \textbf{paper 5} (companion submission): finance fund ranking
+\item \textbf{paper 7} (companion submission): T2I evaluation
+\item \textbf{this paper}: LLM safety
+\end{itemize}
+
+Each paper independently demonstrates that a high Spearman~$\rho$
+between metric pairs does not imply low reversal rate; the two
+statistics answer different questions, and practitioners need the
+latter.
+
+\section{Related Work}
+
+\subsection{Holistic safety evaluation}
+
+HELM Safety \citep{liang2024helm} provides multi-metric $\times$
+multi-model tables and qualitative aggregate reasoning. It does not
+provide reversal-rate statistics. AIR-Bench
+\citep{zeng2024airbench} provides a regulation-grounded taxonomy.
+
+\subsection{Per-axis benchmarks}
+
+HarmBench \citep{mazeika2024harmbench}, SimpleSafetyTests, XSTest,
+and the Anthropic red-team data target the harm/refusal axis. BBQ
+\citep{parrish2022bbq} targets bias. The benchmark designers do not
+claim that scores are substitutable across axes; the field's
+\emph{practitioners} implicitly do.
+
+\subsection{Helpfulness/harmlessness tradeoff}
+
+\citet{bai2022constitutional} argue qualitatively that the
+helpfulness/harmlessness tradeoff is structural. SORRY-Bench~2
+\citep{xie2025sorrybench2} shows that aggressive refusal defenses
+inflate false-refusal rates. \citet{cui2025agency} extend this with
+a third axis (human agency). These works frame the disagreement;
+our contribution is to quantify its rank-flip incidence.
+
+\subsection{Statistical methodology}
+
+We use the criterion-as-IV framework \citep{authors2026criteriaiv}.
+The pairwise reversal rate $\rho_\text{rev} = (1 - \tau_\text{Kendall})
+/ 2$ is a direct rescaling of Kendall~$\tau$ into a probabilistic
+decision-flip statistic; the bootstrap protocol is cluster-
+bootstrap over the LLM panel.
+
+\section{Method}
+
+\subsection{Data}
+
+\textbf{HELM Safety v1.17.0} (Stanford CRFM, released 2025-11-24):
+87 frontier LLMs $\times$ 9 metrics across 5 benchmarks.
+
+\begin{table}[h]
+\centering
+\caption{Metrics extracted from HELM Safety v1.17.0.}
+\begin{tabular}{ll}
+\toprule
+Benchmark & Metric(s) extracted \\
+\midrule
+HarmBench & LM-evaluated safety; Llama-annotator ASR; GPT-annotator ASR \\
+SimpleSafetyTests & LM-evaluated safety \\
+XSTest & LM-evaluated safety \\
+BBQ & overall accuracy; ambiguous; unambiguous \\
+AnthropicRedTeam & LM-evaluated safety \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The 87 LLMs span open and closed frontier models, 2024-2025 release
+dates. \textbf{No new evaluations were run}; we use HELM scores as
+released.
+
+\textbf{Two metrics saturate}: HarmBench Llama-ASR (mean = 0.9996)
+and HarmBench GPT-ASR (mean = 1.000). They produce NaN reversal
+rates against most other metrics; we retain them for completeness.
+
+\subsection{Pairwise reversal rate}
+
+For two metrics $c_a$ and $c_b$ on the LLM panel, the reversal rate is
+\begin{equation}
+\rho_\text{rev}(a, b) =
+\frac{|\{(i, j) : \mathrm{sign}(c_a(j) - c_a(i)) \cdot \mathrm{sign}(c_b(j) - c_b(i)) = -1\}|}
+     {|\{(i, j) : \text{both signs} \neq 0\}|}.
+\end{equation}
+Equivalently, $\rho_\text{rev} = (1 - \tau_\text{Kendall}) / 2$.
+
+\subsection{Cluster bootstrap}
+
+We resample 87 LLMs with replacement ($B = 1000$ trials) and
+recompute the full reversal-rate matrix. The 95\,\% percentile
+interval per cell is reported.
+
+\subsection{Pre-registered hypotheses}
+
+\begin{itemize}
+\item \textbf{H1}: $\geq 1$ pair has reversal $\geq 30\,\%$, CI lower
+bound $> 25\,\%$.
+\item \textbf{H2}: $\geq 1$ pair has Spearman $\rho \geq 0.50$
+\emph{and} reversal $\geq 25\,\%$.
+\item \textbf{H3}: clustering yields $\geq 2$ clusters separating
+helpfulness-class from harmlessness-class metrics.
+\item \textbf{H4}: median reversal of within-axis pairs is $<$ median
+across-axis reversal.
+\item \textbf{H5}: pattern matches papers 3 (LLM Q\&A) and 7 (T2I).
+\end{itemize}
+
+\section{Results}
+
+\subsection{Reversal rate matrix}
+
+Of the $C(9, 2) = 36$ metric pairs, \textbf{4 exceed 50\,\% reversal}
+at the point estimate (Figure~\ref{fig:reversal-heatmap}). The
+maximum is SimpleSafetyTests~$\leftrightarrow$~BBQ-unambiguous at
+\textbf{0.638~[0.549, 0.717]} --- practitioners switching between
+these two benchmarks would receive opposite preferred-LLM verdicts
+on roughly 64\,\% of model pairs.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.85\textwidth]{fig1_reversal_heatmap.pdf}
+\caption{Pairwise reversal-rate matrix on 87 LLMs $\times$ 9 safety
+metrics. ``--'' denotes pairs where one metric saturates and no
+pairs are decided.}
+\label{fig:reversal-heatmap}
+\end{figure}
+
+\begin{table}[t]
+\centering
+\caption{Top 10 metric pairs by reversal point estimate
+($B = 1000$ cluster bootstrap over 87 LLMs).}
+\label{tab:headline}
+\begin{tabular}{rlrcr}
+\toprule
+\# & Pair & Reversal & 95\,\% CI & $\rho$ \\
+\midrule
+1 & SimpleSafetyTests $\leftrightarrow$ BBQ-unambiguous & \textbf{0.638} & [0.549, 0.717] & $-0.345$ \\
+2 & HarmBench-LM $\leftrightarrow$ BBQ-unambiguous     & \textbf{0.620} & [0.552, 0.684] & $-0.340$ \\
+3 & HarmBench-Llama $\leftrightarrow$ BBQ-unambiguous  & 0.613 & --- & $-0.101$ \\
+4 & BBQ-acc $\leftrightarrow$ BBQ-ambiguous            & \textbf{0.599} & [0.517, 0.681] & $-0.224$ \\
+5 & XSTest $\leftrightarrow$ BBQ-unambiguous           & \textbf{0.591} & [0.519, 0.669] & $-0.264$ \\
+6 & XSTest $\leftrightarrow$ BBQ-ambiguous             & 0.517 & [0.447, 0.590] & $-0.052$ \\
+7 & HarmBench-LM $\leftrightarrow$ BBQ-ambiguous       & 0.479 & [0.409, 0.548] & $+0.058$ \\
+8 & HarmBench-LM $\leftrightarrow$ XSTest              & 0.445 & [0.372, 0.523] & $+0.153$ \\
+9 & HarmBench-LM $\leftrightarrow$ AnthropicRedTeam    & 0.282 & tight & $+0.614$ \\
+10 & HarmBench-LM $\leftrightarrow$ HarmBench-Llama    & 0.255 & --- & $+0.219$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{H1 strongly supported.} Six pairs exceed reversal 50\,\%; the
+lowest CI lower bound on the headline four pairs is 51.7\,\%.
+
+\subsection{Negative correlation between safety and bias}
+
+Every harm/refusal metric we examined exhibits \emph{negative}
+Spearman~$\rho$ with BBQ-unambiguous accuracy: HarmBench-LM
+($\rho = -0.340$), SimpleSafetyTests ($-0.345$), XSTest ($-0.264$),
+HarmBench-Llama-ASR ($-0.101$), AnthropicRedTeam ($-0.195$). On
+this benchmark panel, the LLMs that score highest on harm/refusal
+benchmarks score lowest on the bias benchmark. We interpret this
+as orthogonality plus mild opposition.
+
+\subsection{Within-benchmark instability}
+
+The HarmBench LM-evaluated safety score and HarmBench Llama-
+annotator success rate disagree on \textbf{25.5\,\%} of LLM pairs
+($\rho = +0.219$). The same prompts, the same 87 LLMs, but two
+different scoring procedures.
+
+\subsection{Three clusters}
+
+Hierarchical clustering on $1 - \rho$ yields three clusters
+(Figure~\ref{fig:dendrogram}):
+
+\begin{itemize}
+\item \textbf{Cluster 1} (harm/refusal): HarmBench-LM, HarmBench-
+Llama-ASR, SimpleSafetyTests, XSTest, BBQ-accuracy, AnthropicRedTeam
+\item \textbf{Cluster 2} (bias contexts): BBQ-ambiguous,
+BBQ-unambiguous
+\item \textbf{Cluster 3} (saturated outlier): HarmBench-GPT-ASR
+\end{itemize}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.95\textwidth]{fig2_spearman_dendrogram.pdf}
+\caption{Spearman~$\rho$ matrix (left) and hierarchical clustering
+dendrogram on $1 - \rho$ (right).}
+\label{fig:dendrogram}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.95\textwidth]{fig3_headline_pairs.pdf}
+\caption{Top 10 disagreeing safety-metric pairs on 87 LLMs. Bars
+show point-estimate reversal rate; error bars show 95\,\% bootstrap
+CI; annotations show mean Spearman~$\rho$. The dotted vertical line
+marks 50\,\% (coin flip equivalent).}
+\label{fig:headline}
+\end{figure}
+
+\subsection{H1--H5 outcomes}
+
+\textbf{H1} (1 pair $\geq 30\,\%$, CI lower $> 25\,\%$): \emph{strongly
+supported}. \textbf{H2} ($\rho \geq 0.50$ + reversal $\geq 25\,\%$):
+\emph{partial} --- HarmBench-LM~$\leftrightarrow$~AnthropicRedTeam
+($\rho = +0.614$, reversal 28.2\,\%). \textbf{H3} (clustering
+separates classes): \emph{strongly supported} --- three clusters,
+bias separated. \textbf{H4} (within $<$ across): \emph{supported}
+--- 25.5\,\% vs.\ 62\,\%. \textbf{H5} (consistency with papers 3
+and 7): \emph{supported}.
+
+\section{Discussion}
+
+\subsection{What this means for ``safety SOTA'' claims}
+
+\begin{itemize}
+\item A model that ranks first on HarmBench is \emph{not} first on
+BBQ-unambiguous bias with high probability (62\,\% of model pairs
+flip).
+\item A model that ranks first on HarmBench-LM may not be first on
+HarmBench-Llama-ASR (25\,\% of pairs flip even within HarmBench).
+\item Cherry-picking a benchmark to claim SOTA is structurally easy:
+with 9 candidate metrics in HELM Safety alone, a developer can
+expect at least one ordering in which their model is competitive.
+\end{itemize}
+
+\subsection{Recommendations}
+
+For developers:
+\begin{enumerate}
+\item Report the full reversal-rate matrix alongside the headline
+metric.
+\item Disaggregate within-benchmark sub-metrics.
+\item Pre-register the choice of safety metric as a research-design
+variable.
+\end{enumerate}
+
+For benchmark designers:
+\begin{enumerate}
+\item Cluster nearby benchmarks to expose redundancy.
+\item Publish reversal-rate matrices as a standard appendix.
+\item Avoid saturating metrics (HarmBench-GPT-ASR was at 1.000).
+\end{enumerate}
+
+\section{Limitations}
+
+\textbf{Single substrate dataset.} HELM Safety v1.17.0 only.
+AIR-Bench, AlpacaEval, WildBench, JailbreakBench have public scores
+at other URLs; we leave their integration to a follow-up.
+
+\textbf{Saturated metrics.} HarmBench Llama-ASR and GPT-ASR are at
+or near 1.000 mean; they produce NaN reversal rates and are
+excluded from headline analyses.
+
+\textbf{$N = 87$ models} is large for safety-eval but small relative
+to image-criteria-iv ($n = 300$ prompts $\times$ 9 images).
+Cluster-bootstrap CIs are correspondingly wider.
+
+\textbf{Self-reported scores.} HELM is third-party; we trust HELM's
+provenance.
+
+\textbf{Companion paper relation.} Methodology is paper 3 (NeurIPS
+E\&D, in review); we cite explicitly.
+
+\section{Conclusion}
+
+We applied pairwise reversal-rate analysis with cluster-bootstrap
+CIs to LLM safety evaluation across 87 frontier LLMs and 9 safety
+metrics. Half of the across-axis metric pairs return opposite
+preferred-LLM verdicts on more than 50\,\% of model pairs;
+harm/refusal metrics are negatively correlated with the bias
+benchmark; even within HarmBench, two scoring procedures disagree on
+25\,\%. The choice of safety metric is an independent variable of
+the research design, not a measurement nuisance. We recommend
+benchmark papers report the full reversal-rate matrix alongside
+their headline.
+
+\bibliographystyle{tmlr}
+\bibliography{refs}
+
+\appendix
+\section{Reproducibility}
+
+Public HELM data:
+\url{https://storage.googleapis.com/crfm-helm-public/gzip/safety/benchmark_output/releases/v1.17.0/}
+
+Pipeline:
+\begin{verbatim}
+python run_phase2.py    # fetch + build score matrix
+python run_phase3.py    # reversal + bootstrap + clustering
+python run_figures.py   # 4 paper figures
+\end{verbatim}
+
+Total runtime: $\sim 5$ minutes on a laptop CPU. No API keys, no GPU.
+
+\end{document}

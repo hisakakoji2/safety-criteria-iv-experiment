@@ -1,29 +1,31 @@
-# Secrets
-.env
-*.key
-*.pem
-
-# Python
-__pycache__/
-*.py[cod]
-*.so
-*.egg-info/
-.pytest_cache/
-.coverage
-
-# Virtual envs
-.venv/
-venv/
 
 # Editor / OS
-.DS_Store
-.idea/
-.vscode/
-*.swp
-
-# Notebooks
-.ipynb_checkpoints/
-
+# LaTeX intermediates
 # Logs
+# Notebooks
+# Python
+# Secrets
+# Virtual envs
+*.egg-info/
+*.key
 *.log
+*.pem
+*.py[cod]
+*.so
+*.swp
+.DS_Store
+.coverage
+.env
+.idea/
+.ipynb_checkpoints/
+.pytest_cache/
+.venv/
+.vscode/
+__pycache__/
 data/helm_safety/
+paper/main.aux
+paper/main.bbl
+paper/main.blg
+paper/main.log
+paper/main.out
+venv/
