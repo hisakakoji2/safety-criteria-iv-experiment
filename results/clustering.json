@@ -1,0 +1,75 @@
+{
+  "criteria": [
+    "HarmBench::LM Evaluated Safety score",
+    "HarmBench::Llama Annotator Success Rate",
+    "HarmBench::GPT Annotator Success Rate",
+    "SimpleSafetyTests::LM Evaluated Safety score",
+    "XSTest::LM Evaluated Safety score",
+    "BBQ::BBQ accuracy",
+    "BBQ::BBQ (ambiguous)",
+    "BBQ::BBQ (unambiguous)",
+    "AnthropicRedTeam::LM Evaluated Safety score"
+  ],
+  "labels": [
+    1,
+    1,
+    3,
+    1,
+    1,
+    1,
+    2,
+    2,
+    1
+  ],
+  "linkage": [
+    [
+      0.0,
+      3.0,
+      0.2861564323026621,
+      2.0
+    ],
+    [
+      8.0,
+      9.0,
+      0.380957886054204,
+      3.0
+    ],
+    [
+      4.0,
+      5.0,
+      0.3990811888853494,
+      2.0
+    ],
+    [
+      10.0,
+      11.0,
+      0.7476816828266644,
+      5.0
+    ],
+    [
+      1.0,
+      12.0,
+      0.7721559190938552,
+      6.0
+    ],
+    [
+      6.0,
+      7.0,
+      0.9050899974693153,
+      2.0
+    ],
+    [
+      2.0,
+      14.0,
+      1.0,
+      3.0
+    ],
+    [
+      13.0,
+      15.0,
+      1.073159919907086,
+      9.0
+    ]
+  ],
+  "n_clusters": 3
+}
